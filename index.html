@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111111">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Monkey Estoque">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Monkey Estoque</title>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--text:#171717;--muted:#70757d;--line:#e7e8eb;--accent:#111;--soft:#f0f1f3;--danger:#d92d20;--warn:#e58a00}
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
+button,input{font:inherit}button{cursor:pointer}
+.app{max-width:980px;margin:auto;padding:18px 14px 40px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+h1{font-size:25px;margin:0}.sub{color:var(--muted);font-size:13px;margin-top:4px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.btn{border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 13px;font-weight:700}.btn.primary{background:#111;color:#fff;border-color:#111}
+.btn.danger{color:var(--danger)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:13px}.stat b{display:block;font-size:19px}.stat span{font-size:12px;color:var(--muted)}
+.toolbar{display:flex;gap:9px;margin:12px 0;flex-wrap:wrap}.search{flex:1;min-width:220px;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff}
+.brand{background:var(--card);border:1px solid var(--line);border-radius:17px;margin:12px 0;overflow:hidden}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px}.brand-head{padding:15px;cursor:pointer}.brand-name{font-size:18px;font-weight:800}.meta{color:var(--muted);font-size:12px;margin-top:3px}.chev{font-size:20px;color:var(--muted)}
+.brand-body{border-top:1px solid var(--line);padding:10px}
+.model{border:1px solid var(--line);border-radius:14px;margin:9px 0;overflow:hidden;background:#fff}
+.model-head{padding:12px 13px;cursor:pointer}.model-name{font-weight:800}.model-meta{font-size:12px;color:var(--muted);margin-top:3px}
+.model-actions{display:flex;gap:6px}.iconbtn{border:1px solid var(--line);background:var(--soft);border-radius:9px;padding:7px 9px}
+.model-body{border-top:1px solid var(--line);padding:10px}
+.flavor{display:grid;grid-template-columns:minmax(0,1fr) 95px 100px auto;align-items:center;gap:8px;padding:9px 4px;border-bottom:1px solid #f0f0f0}.flavor:last-child{border-bottom:0}
+.flavor-name{font-weight:600}.qty{font-weight:800;text-align:center}.value{text-align:right;font-size:13px}
+.qbtns{display:flex;gap:5px}.qbtn{width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:#fff;font-weight:800}
+.low{color:var(--warn)}.zero{color:var(--danger)}
+.empty{text-align:center;color:var(--muted);padding:30px 10px}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;padding:10px;z-index:20}
+.modal-bg.show{display:flex}.modal{background:#fff;border-radius:20px;width:min(560px,100%);padding:18px;max-height:90vh;overflow:auto}.modal h2{margin:0 0 14px;font-size:20px}
+.field{margin:11px 0}.field label{display:block;font-size:12px;color:var(--muted);font-weight:700;margin-bottom:6px}.field input{width:100%;padding:12px;border:1px solid var(--line);border-radius:11px}
+.modal-actions{display:flex;gap:8px;margin-top:16px}.modal-actions .btn{flex:1}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#111;color:#fff;padding:11px 15px;border-radius:12px;font-size:13px;display:none;z-index:30}
+.toast.show{display:block}
+@media(max-width:720px){.stats{grid-template-columns:repeat(2,1fr)}.flavor{grid-template-columns:1fr auto;}.flavor .value{grid-column:1;text-align:left}.flavor .qbtns{grid-column:2;grid-row:1 / span 2}.actions{justify-content:flex-start}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div><h1>📦 Monkey Estoque</h1><div class="sub">Marca → modelo → sabor → quantidade</div></div>
+  <div class="actions">
+    <button class="btn" onclick="backup()">Backup</button>
+    <button class="btn" onclick="document.getElementById('file').click()">Importar</button>
+    <button class="btn primary" onclick="openAdd()">＋ Adicionar</button>
+    <input id="file" type="file" accept=".json" hidden onchange="restore(event)">
+  </div>
+</header>
+
+<section class="stats">
+  <div class="stat"><b id="sUnits">0</b><span>Unidades</span></div>
+  <div class="stat"><b id="sValue">R$ 0,00</b><span>Valor do estoque</span></div>
+  <div class="stat"><b id="sModels">0</b><span>Modelos</span></div>
+  <div class="stat"><b id="sLow">0</b><span>Estoque baixo</span></div>
+</section>
+
+<div class="toolbar">
+  <input id="search" class="search" placeholder="🔎 Buscar marca, modelo ou sabor..." oninput="render()">
+  <button class="btn" onclick="addBrand()">＋ Nova marca</button>
+</div>
+
+<div id="app"></div>
+</div>
+
+<div id="modalBg" class="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h2 id="modalTitle"></h2>
+    <div id="modalFields"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn primary" id="saveBtn">Salvar</button>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+
+<script>
+const KEY="monkey_estoque_v1";
+let data=JSON.parse(localStorage.getItem(KEY)||"null")||[
+ {brand:"IGNITE",model:"V150 PRO",flavor:"Blue Razz Ice",qty:10,cost:65,min:1},
+ {brand:"IGNITE",model:"V150 PRO",flavor:"Strawberry Kiwi",qty:5,cost:65,min:1},
+ {brand:"IGNITE",model:"V150 PRO",flavor:"Grape Ice",qty:12,cost:65,min:1},
+ {brand:"IGNITE",model:"V120 PRO",flavor:"Blue Razz",qty:8,cost:58,min:1},
+ {brand:"IGNITE",model:"V120 PRO",flavor:"Mango",qty:6,cost:58,min:1},
+ {brand:"WAKA",model:"BLAST 36K",flavor:"Watermelon",qty:5,cost:70,min:1},
+ {brand:"WAKA",model:"BLAST 36K",flavor:"Grape",qty:8,cost:70,min:1},
+ {brand:"WAKA",model:"KA 42K",flavor:"Blueberry",qty:6,cost:75,min:1},
+ {brand:"LOST MARY",model:"MO 20K",flavor:"Blueberry",qty:6,cost:58,min:1},
+ {brand:"LOST MARY",model:"MO 20K",flavor:"Mango",qty:10,cost:58,min:1}
+];
+let openBrands={},openModels={};
+function save(){localStorage.setItem(KEY,JSON.stringify(data));render()}
+function money(v){return Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+function groups(){
+ const q=document.getElementById("search").value.trim().toLowerCase();
+ const out={};
+ data.forEach((p,i)=>{
+   if(q && ![p.brand,p.model,p.flavor].some(x=>String(x).toLowerCase().includes(q))) return;
+   out[p.brand]??={}; out[p.brand][p.model]??=[]; out[p.brand][p.model].push({...p,_i:i});
+ });
+ return out;
+}
+function render(){
+ const g=groups(), root=document.getElementById("app");
+ let units=data.reduce((a,p)=>a+Number(p.qty||0),0), value=data.reduce((a,p)=>a+Number(p.qty||0)*Number(p.cost||0),0);
+ let brands=new Set(data.map(p=>p.brand)).size, models=new Set(data.map(p=>p.brand+"||"+p.model)).size;
+ let low=data.filter(p=>Number(p.qty)===0 || Number(p.qty)<=Number(p.min||1)).length;
+ sUnits.textContent=units;sValue.textContent=money(value);sModels.textContent=models;sLow.textContent=low;
+ const brandsArr=Object.keys(g).sort();
+ if(!brandsArr.length){root.innerHTML='<div class="empty">Nenhum item encontrado.</div>';return}
+ root.innerHTML=brandsArr.map(brand=>{
+   const modelsObj=g[brand], brandOpen=openBrands[brand]!==false;
+   const brandItems=Object.values(modelsObj).flat();
+   const bQty=brandItems.reduce((a,p)=>a+Number(p.qty||0),0), bVal=brandItems.reduce((a,p)=>a+Number(p.qty||0)*Number(p.cost||0),0);
+   return `<section class="brand">
+    <div class="brand-head row" onclick="toggleBrand('${jsq(brand)}')">
+      <div><div class="brand-name">${esc(brand)}</div><div class="meta">${bQty} un. · ${money(bVal)} · ${Object.keys(modelsObj).length} modelo(s)</div></div>
+      <div class="chev">${brandOpen?"⌃":"⌄"}</div>
+    </div>
+    ${brandOpen?`<div class="brand-body">
+      ${Object.keys(modelsObj).sort().map(model=>{
+        const arr=modelsObj[model], key=brand+"||"+model, op=openModels[key]!==false;
+        const qty=arr.reduce((a,p)=>a+Number(p.qty||0),0), val=arr.reduce((a,p)=>a+Number(p.qty||0)*Number(p.cost||0),0);
+        const cost=arr[0]?.cost||0;
+        return `<div class="model">
+          <div class="model-head row" onclick="toggleModel('${jsq(key)}')">
+            <div><div class="model-name">${esc(model)}</div><div class="model-meta">${qty} un. · custo ${money(cost)} · estoque ${money(val)}</div></div>
+            <div class="model-actions">
+              <button class="iconbtn" onclick="event.stopPropagation();editModel('${jsq(brand)}','${jsq(model)}')">✎</button>
+              <span class="chev">${op?"⌃":"⌄"}</span>
+            </div>
+          </div>
+          ${op?`<div class="model-body">
+            ${arr.sort((a,b)=>a.flavor.localeCompare(b.flavor)).map(p=>{
+              const cls=Number(p.qty)===0?"zero":Number(p.qty)<=Number(p.min||1)?"low":"";
+              return `<div class="flavor">
+                <div class="flavor-name">${esc(p.flavor)} ${Number(p.qty)===0?"🔴":Number(p.qty)<=Number(p.min||1)?"🟠":""}</div>
+                <div class="qty ${cls}">${p.qty}</div>
+                <div class="value">${money(Number(p.qty)*Number(p.cost))}</div>
+                <div class="qbtns">
+                  <button class="qbtn" onclick="changeQty(${p._i},-1)">−</button>
+                  <button class="qbtn" onclick="changeQty(${p._i},1)">＋</button>
+                  <button class="qbtn" onclick="editFlavor(${p._i})">✎</button>
+                </div>
+              </div>`
+            }).join("")}
+            <button class="btn" style="margin-top:9px" onclick="addFlavor('${jsq(brand)}','${jsq(model)}')">＋ Adicionar sabor</button>
+          </div>`:""}
+        </div>`
+      }).join("")}
+      <button class="btn primary" onclick="addModel('${jsq(brand)}')">＋ Adicionar modelo em ${esc(brand)}</button>
+    </div>`:""}
+   </section>`
+ }).join("");
+}
+function jsq(s){return String(s).replace(/\\/g,"\\\\").replace(/'/g,"\\'")}
+function toggleBrand(b){openBrands[b]=openBrands[b]===false;render()}
+function toggleModel(k){openModels[k]=openModels[k]===false;render()}
+function changeQty(i,d){data[i].qty=Math.max(0,Number(data[i].qty||0)+d);save();toast(d>0?"Estoque adicionado":"Estoque retirado")}
+function modal(title,fields,onSave){
+ modalTitle.textContent=title;
+ modalFields.innerHTML=fields.map((f,i)=>`<div class="field"><label>${esc(f.label)}</label><input id="f${i}" type="${f.type||"text"}" value="${esc(f.value??"")}" ${f.step?"step="+f.step:""} ${f.min!==undefined?"min="+f.min:""}></div>`).join("");
+ modalBg.classList.add("show");
+ saveBtn.onclick=()=>{onSave(fields.map((_,i)=>document.getElementById("f"+i).value));closeModal();save()}
+ setTimeout(()=>document.getElementById("f0")?.focus(),50)
+}
+function closeModal(){modalBg.classList.remove("show")}
+function openAdd(){modal("Adicionar item",[
+ {label:"Marca",value:"IGNITE"},{label:"Modelo",value:""},{label:"Sabor",value:""},{label:"Quantidade inicial",type:"number",value:0,min:0},{label:"Custo por unidade do modelo (R$)",type:"number",value:0,min:0,step:"0.01"},{label:"Estoque mínimo deste sabor",type:"number",value:1,min:1}
+],v=>{if(!v[0]||!v[1]||!v[2])return alert("Preencha marca, modelo e sabor.");data.push({brand:v[0].trim().toUpperCase(),model:v[1].trim().toUpperCase(),flavor:v[2].trim(),qty:Number(v[3])||0,cost:Number(v[4])||0,min:Math.max(1,Number(v[5])||1)});openBrands[v[0].trim().toUpperCase()]=true})}
+function addModel(brand){modal("Novo modelo — "+brand,[
+ {label:"Modelo",value:""},{label:"Primeiro sabor",value:""},{label:"Quantidade inicial",type:"number",value:0,min:0},{label:"Custo por unidade do modelo (R$)",type:"number",value:0,min:0,step:"0.01"},{label:"Estoque mínimo",type:"number",value:1,min:1}
+],v=>{if(!v[0]||!v[1])return alert("Preencha modelo e sabor.");data.push({brand,model:v[0].trim().toUpperCase(),flavor:v[1].trim(),qty:Number(v[2])||0,cost:Number(v[3])||0,min:Math.max(1,Number(v[4])||1)});openBrands[brand]=true;openModels[brand+"||"+v[0].trim().toUpperCase()]=true})}
+function addFlavor(brand,model){modal("Novo sabor — "+model,[
+ {label:"Sabor",value:""},{label:"Quantidade inicial",type:"number",value:0,min:0},{label:"Estoque mínimo",type:"number",value:1,min:1}
+],v=>{if(!v[0])return alert("Informe o sabor.");const existing=data.find(p=>p.brand===brand&&p.model===model);data.push({brand,model,flavor:v[0].trim(),qty:Number(v[1])||0,cost:Number(existing?.cost||0),min:Math.max(1,Number(v[2])||1)})})}
+function editFlavor(i){const p=data[i];modal("Editar sabor",[
+ {label:"Marca",value:p.brand},{label:"Modelo",value:p.model},{label:"Sabor",value:p.flavor},{label:"Quantidade",type:"number",value:p.qty,min:0},{label:"Estoque mínimo",type:"number",value:p.min||1,min:1}
+],v=>{p.brand=v[0].trim().toUpperCase();p.model=v[1].trim().toUpperCase();p.flavor=v[2].trim();p.qty=Math.max(0,Number(v[3])||0);p.min=Math.max(1,Number(v[4])||1)})}
+function editModel(brand,model){const first=data.find(p=>p.brand===brand&&p.model===model);modal("Editar modelo",[
+ {label:"Marca",value:brand},{label:"Modelo",value:model},{label:"Custo por unidade do modelo (R$)",type:"number",value:first?.cost||0,min:0,step:"0.01"}
+],v=>{const nb=v[0].trim().toUpperCase(),nm=v[1].trim().toUpperCase(),cost=Number(v[2])||0;data.forEach(p=>{if(p.brand===brand&&p.model===model){p.brand=nb;p.model=nm;p.cost=cost}})})}
+function addBrand(){modal("Nova marca",[{label:"Nome da marca",value:""}],v=>{if(!v[0])return;const b=v[0].trim().toUpperCase();if(!data.some(p=>p.brand===b)){data.push({brand:b,model:"NOVO MODELO",flavor:"Novo sabor",qty:0,cost:0,min:1});openBrands[b]=true;alert("Marca criada. Você pode editar o modelo e o sabor agora.")}})}
+function backup(){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="backup-monkey-estoque-"+new Date().toISOString().slice(0,10)+".json";a.click();URL.revokeObjectURL(a.href);toast("Backup salvo")}
+function restore(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);if(!Array.isArray(x))throw 0;data=x;save();toast("Backup importado")}catch{alert("Arquivo de backup inválido.")}};r.readAsText(file);e.target.value=""}
+function toast(t){const x=document.getElementById("toast");x.textContent=t;x.classList.add("show");setTimeout(()=>x.classList.remove("show"),1600)}
+if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js").catch(()=>{}));
+render();
+</script>
+</body>
+</html>
